@@ -1,0 +1,133 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==================== Helper Functions ====================
+
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the requesting user is the document owner
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if user is a collaborator on a mindmap
+    function isCollaborator(mindmapId) {
+      let mindmap = get(/databases/$(database)/documents/mindmaps/$(mindmapId));
+      return isAuthenticated() &&
+        mindmap.data.collaborators[request.auth.uid] != null;
+    }
+
+    // Check if user has a specific role on a mindmap
+    function hasRole(mindmapId, role) {
+      let mindmap = get(/databases/$(database)/documents/mindmaps/$(mindmapId));
+      return isAuthenticated() &&
+        mindmap.data.collaborators[request.auth.uid] == role;
+    }
+
+    // Check if user is owner or editor of a mindmap
+    function canEdit(mindmapId) {
+      let mindmap = get(/databases/$(database)/documents/mindmaps/$(mindmapId));
+      return isAuthenticated() && (
+        mindmap.data.ownerId == request.auth.uid ||
+        mindmap.data.collaborators[request.auth.uid] == 'owner' ||
+        mindmap.data.collaborators[request.auth.uid] == 'editor'
+      );
+    }
+
+    // ==================== Users Collection ====================
+    match /users/{userId} {
+      // Users can read their own profile
+      // Other authenticated users can read profiles (for sharing features)
+      allow read: if isAuthenticated();
+
+      // Users can only create/update their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+
+      // Users can only delete their own profile
+      allow delete: if isOwner(userId);
+    }
+
+    // ==================== Mindmaps Collection ====================
+    match /mindmaps/{mindmapId} {
+      // Owner can always read, collaborators can also read
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.collaborators[request.auth.uid] != null
+      );
+
+      // Any authenticated user can create a mindmap
+      allow create: if isAuthenticated() &&
+        request.resource.data.ownerId == request.auth.uid;
+
+      // Owner and editors can update mindmap metadata
+      allow update: if canEdit(mindmapId);
+
+      // Only the owner can delete a mindmap
+      allow delete: if isAuthenticated() &&
+        resource.data.ownerId == request.auth.uid;
+
+      // ==================== Nodes Subcollection ====================
+      match /nodes/{nodeId} {
+        // Owner or collaborators can read nodes
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/mindmaps/$(mindmapId)).data.ownerId == request.auth.uid ||
+          get(/databases/$(database)/documents/mindmaps/$(mindmapId)).data.collaborators[request.auth.uid] != null
+        );
+
+        // Owner and editors can create/update/delete nodes
+        allow create: if canEdit(mindmapId);
+        allow update: if canEdit(mindmapId);
+        allow delete: if canEdit(mindmapId);
+      }
+
+      // ==================== Edges Subcollection ====================
+      match /edges/{edgeId} {
+        // Owner or collaborators can read edges
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/mindmaps/$(mindmapId)).data.ownerId == request.auth.uid ||
+          get(/databases/$(database)/documents/mindmaps/$(mindmapId)).data.collaborators[request.auth.uid] != null
+        );
+
+        // Owner and editors can create/update/delete edges
+        allow create: if canEdit(mindmapId);
+        allow update: if canEdit(mindmapId);
+        allow delete: if canEdit(mindmapId);
+      }
+
+      // ==================== Presence Subcollection ====================
+      match /presence/{userId} {
+        // All collaborators can read presence
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/mindmaps/$(mindmapId)).data.ownerId == request.auth.uid ||
+          get(/databases/$(database)/documents/mindmaps/$(mindmapId)).data.collaborators[request.auth.uid] != null
+        );
+
+        // Users can only update their own presence
+        allow create: if isAuthenticated() && request.auth.uid == userId;
+        allow update: if isAuthenticated() && request.auth.uid == userId;
+        allow delete: if isAuthenticated() && request.auth.uid == userId;
+      }
+
+      // ==================== Versions Subcollection ====================
+      match /versions/{versionId} {
+        // Owner or collaborators can read versions
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/mindmaps/$(mindmapId)).data.ownerId == request.auth.uid ||
+          get(/databases/$(database)/documents/mindmaps/$(mindmapId)).data.collaborators[request.auth.uid] != null
+        );
+
+        // Owner and editors can create versions
+        allow create: if canEdit(mindmapId);
+
+        // Only owner can delete versions
+        allow delete: if hasRole(mindmapId, 'owner');
+      }
+    }
+  }
+}

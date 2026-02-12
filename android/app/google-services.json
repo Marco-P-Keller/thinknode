@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "68520199224",
+    "project_id": "thinknode-9fc96",
+    "storage_bucket": "thinknode-9fc96.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:68520199224:android:ba5ca58645f28fde9012cd",
+        "android_client_info": {
+          "package_name": "com.app.thinknode"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFT6lu23bBA-lNmeNpOu0lk3DaAARgcaI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
